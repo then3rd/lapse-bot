@@ -1,0 +1,8 @@
+__pycache__
+.venv
+*.csv
+*.pickle
+*.png
+*.jpg
+*.json
+secrets.py
