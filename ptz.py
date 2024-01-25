@@ -119,6 +119,10 @@ class StepperControl:
     """
     https://mryslab.github.io/telemetrix/stepper/
     https://europe1.discourse-cdn.com/arduino/original/4X/3/b/c/3bcea040a219684ab97f9469e831a20a3abca704.png
+
+    on rpi install system libs before installing requirements
+    # sudo apt install python3-dev libgphoto2-dev libexif12 libgphoto2-6 libgphoto2-port12 libltdl7
+
     """
 
     exit_flag = 0
@@ -146,9 +150,6 @@ class StepperControl:
             print("The motor IS NOT running.")
 
     def step_absolute(self, the_board):
-        # create an accelstepper instance for a TB6600 motor drive
-        # if you are using a micro stepper controller board:
-        # pin1 = pulse pin, pin2 = direction
         motor = the_board.set_pin_mode_stepper(
             interface=1, pin1=Y_PULSE_PIN, pin2=Y_DIRECTION_PIN
         )
@@ -158,11 +159,11 @@ class StepperControl:
 
         # set the max speed and acceleration
         the_board.stepper_set_current_position(0, 0)
-        the_board.stepper_set_max_speed(motor, 800)
-        the_board.stepper_set_acceleration(motor, 800)
+        the_board.stepper_set_max_speed(motor, 400)
+        the_board.stepper_set_acceleration(motor, 200)
 
         # set the absolute position in steps
-        the_board.stepper_move_to(motor, 2000)
+        the_board.stepper_move_to(motor, 1000)
 
         # run the motor
         print("Starting motor...")
@@ -233,10 +234,10 @@ def main():
     print(f"{len(pan_list)} x {pan_degree}° = {pan_degree *len(pan_list)}°: {pan_list}")
 
     if args.test:
-        cam = GPhoto2Camera()
-        cam.capture_frame()
         StepperControl()
         exit()
+        cam = GPhoto2Camera()
+        cam.capture_frame()
     else:
         cam = AxisCamera()
 
