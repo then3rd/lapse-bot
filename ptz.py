@@ -8,6 +8,7 @@ import argparse
 import requests
 from requests.auth import HTTPDigestAuth
 import ffmpeg
+import gphoto2 as gp
 
 import constants as const
 
@@ -34,6 +35,26 @@ FRAME_NAME = "frame"
 OUTPUT_DIR = "out"
 OUTPUT_VIDEO = "output.mp4"
 GOOD_RESP = [200, 204]
+
+
+class GPhoto2Camera:
+    def __init__(self):
+        self.camera = gp.Camera()
+        self.camera.init()
+
+    def capture_frame(self):
+        print("Capturing frame.", end=" ")
+        file_path = self.camera.capture(gp.GP_CAPTURE_IMAGE)
+        print(f" Got: {file_path.folder}/{file_path.name}.", end=" ")
+        camera_file = self.camera.file_get(
+            file_path.folder,
+            file_path.name,
+            gp.GP_FILE_TYPE_NORMAL,
+        )
+        target = os.path.join("/tmp", file_path.name)
+        print(f" Saving to >> {target}.")
+        camera_file.save(target)
+        self.camera.exit()
 
 
 class AxisCamera:
@@ -132,7 +153,6 @@ def parse_args():
 def main():
     """Main Routine"""
     args = parse_args()
-    cam = AxisCamera()
 
     # Calculate degree steps
     assert STEPS >= 3
@@ -142,7 +162,11 @@ def main():
     print(f"{len(pan_list)} x {pan_degree}° = {pan_degree *len(pan_list)}°: {pan_list}")
 
     if args.test:
+        cam = GPhoto2Camera()
+        cam.capture_frame()
         exit()
+    else:
+        cam = AxisCamera()
 
     if args.finalize:
         finalize()
