@@ -39,6 +39,11 @@ GOOD_RESP = [200, 204]
 
 
 class GPhoto2Camera:
+    """Camera shutter control and image retrieval
+    on rpi install system libs before installing requirements
+    # sudo apt install python3-dev libgphoto2-dev libexif12 libgphoto2-6 libgphoto2-port12 libltdl7
+    """
+
     def __init__(self):
         self.camera = gp.Camera()
         self.camera.init()
@@ -114,15 +119,14 @@ ENABLE_PIN = 8
 Y_PULSE_PIN = 3
 Y_DIRECTION_PIN = 6
 
+STEPS = 200
+MICROSTEPS = 16
+
 
 class StepperControl:
-    """
+    """Relative or Absolute control of stepper motor via Telemetrix
     https://mryslab.github.io/telemetrix/stepper/
     https://europe1.discourse-cdn.com/arduino/original/4X/3/b/c/3bcea040a219684ab97f9469e831a20a3abca704.png
-
-    on rpi install system libs before installing requirements
-    # sudo apt install python3-dev libgphoto2-dev libexif12 libgphoto2-6 libgphoto2-port12 libltdl7
-
     """
 
     exit_flag = 0
@@ -130,12 +134,20 @@ class StepperControl:
     def __init__(self):
         self.board = telemetrix.Telemetrix(com_port="/dev/ttyACM0")
         self.board.set_pin_mode_digital_output(ENABLE_PIN)
+        self.board.digital_write(ENABLE_PIN, 0)
+        time.sleep(1)
         try:
-            self.step_absolute(self.board)
-            self.board.shutdown()
+            self.do_step(200, kind="rel")
+            self.shutdown()
         except KeyboardInterrupt:
-            self.board.shutdown()
+            self.shutdown()
             sys.exit(0)
+
+    def shutdown(self):
+        """Alow motion to settle then disable stepper"""
+        time.sleep(1)
+        self.board.digital_write(ENABLE_PIN, 1)
+        self.board.shutdown()
 
     def completion_callback(self, data):
         date = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(data[2]))
@@ -149,40 +161,37 @@ class StepperControl:
         else:
             print("The motor IS NOT running.")
 
-    def step_absolute(self, the_board):
-        motor = the_board.set_pin_mode_stepper(
-            interface=1, pin1=Y_PULSE_PIN, pin2=Y_DIRECTION_PIN
+    def do_step(self, steps, kind=0):
+        """Move stepper motor specified number of steps"""
+        motor = self.board.set_pin_mode_stepper(
+            interface=1,
+            pin1=Y_PULSE_PIN,
+            pin2=Y_DIRECTION_PIN,
         )
 
-        # the_board.stepper_is_running(motor, callback=running_callback)
+        # self.board.stepper_is_running(motor, callback=running_callback)
         time.sleep(0.5)
 
         # set the max speed and acceleration
-        the_board.stepper_set_current_position(0, 0)
-        the_board.stepper_set_max_speed(motor, 400)
-        the_board.stepper_set_acceleration(motor, 200)
+        self.board.stepper_set_current_position(0, 0)
+        self.board.stepper_set_acceleration(motor, 800)
+        self.board.stepper_set_max_speed(motor, 1000)
 
         # set the absolute position in steps
-        the_board.stepper_move_to(motor, 1000)
+
+        if kind == "rel":
+            self.board.stepper_move(motor, steps * MICROSTEPS)
+        elif kind == "abs":
+            self.board.stepper_move_to(motor, steps * MICROSTEPS)
 
         # run the motor
         print("Starting motor...")
-        the_board.stepper_run(motor, completion_callback=self.completion_callback)
+        self.board.stepper_run(motor, completion_callback=self.completion_callback)
         # time.sleep(0.2)
-        the_board.stepper_is_running(motor, callback=self.running_callback)
+        self.board.stepper_is_running(motor, callback=self.running_callback)
         # time.sleep(0.2)
         while self.exit_flag == 0:
             time.sleep(0.2)
-
-        # keep application running
-        while self.exit_flag < 1:
-            try:
-                time.sleep(0.2)
-            except KeyboardInterrupt:
-                the_board.shutdown()
-                sys.exit(0)
-        the_board.shutdown()
-        sys.exit(0)
 
 
 def filename(index, suffix):
